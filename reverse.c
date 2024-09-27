@@ -2,61 +2,89 @@
 #include <stdlib.h>
 #include <string.h>
 
-void invertir_lineas(FILE *entrada, FILE *salida) {
-    char *lineas[100];
-    char buffer[256];
-    int contador = 0;
-
-    // Leer las líneas del archivo de entrada
-    while (fgets(buffer, sizeof(buffer), entrada) != NULL && contador < 100) {
-        lineas[contador] = strdup(buffer);  // Guardar copia de cada línea
-        contador++;
+void liberar_memoria(char **lineas, int num_lineas) {
+    for (int i = 0; i < num_lineas; i++) {
+        free(lineas[i]);
     }
-
-    // Escribir las líneas en orden inverso en el archivo de salida
-    for (int i = contador - 1; i >= 0; i--) {
-        fprintf(salida, "%s", lineas[i]);   // Imprimir cada línea respetando los saltos de línea
-        free(lineas[i]);                    // Liberar memoria después de usar la línea
-    }
+    free(lineas);
 }
 
 int main(int argc, char *argv[]) {
-    FILE *entrada = stdin;  // Entrada por defecto es stdin
-    FILE *salida = stdout;  // Salida por defecto es stdout
+    FILE *inputFile = stdin;
+    FILE *outputFile = stdout;
+    char *inputFileName = NULL;
+    char *outputFileName = NULL;
 
-    if (argc == 1) {
-        // Caso 1: Sin argumentos, leer de stdin y escribir en stdout
-        printf("Introduce líneas de texto y presiona Ctrl + D para finalizar:\n");
-        invertir_lineas(entrada, salida);
-    } else if (argc == 2) {
-        // Caso 2: Un argumento, leer de un archivo y escribir en stdout
-        entrada = fopen(argv[1], "r");
-        if (entrada == NULL) {
-            perror("Error al abrir el archivo de entrada");
-            return 1;
+    // Verificar número de argumentos
+    if (argc > 3) {
+        fprintf(stderr, "usage: reverse <input> <output>\n");
+        exit(1);
+    }
+
+    // Si hay archivo de entrada
+    if (argc >= 2) {
+        inputFileName = argv[1];
+        inputFile = fopen(inputFileName, "r");
+        if (inputFile == NULL) {
+            fprintf(stderr, "reverse: cannot open file '%s'\n", inputFileName);
+            exit(1);
         }
-        invertir_lineas(entrada, salida);
-        fclose(entrada);
-    } else if (argc == 3) {
-        // Caso 3: Dos argumentos, leer de un archivo y escribir en otro archivo
-        entrada = fopen(argv[1], "r");
-        if (entrada == NULL) {
-            perror("Error al abrir el archivo de entrada");
-            return 1;
+    }
+
+    // Si hay archivo de salida
+    if (argc == 3) {
+        outputFileName = argv[2];
+        // Verificar que los archivos de entrada y salida no sean el mismo
+        if (strcmp(inputFileName, outputFileName) == 0) {
+            fprintf(stderr, "reverse: input and output file must differ\n");
+            exit(1);
         }
-        salida = fopen(argv[2], "w");
-        if (salida == NULL) {
-            perror("Error al abrir el archivo de salida");
-            fclose(entrada);
-            return 1;
+        outputFile = fopen(outputFileName, "w");
+        if (outputFile == NULL) {
+            fprintf(stderr, "reverse: cannot open file '%s'\n", outputFileName);
+            fclose(inputFile);
+            exit(1);
         }
-        invertir_lineas(entrada, salida);
-        fclose(entrada);
-        fclose(salida);
-    } else {
-        // Más de dos argumentos, mostrar error
-        fprintf(stderr, "Uso: %s [archivo_entrada] [archivo_salida]\n", argv[0]);
-        return 1;
+    }
+
+    // Leer el archivo línea por línea
+    char **lineas = NULL;
+    char *linea = NULL;
+    size_t tamano = 0;
+    ssize_t leido;
+    int num_lineas = 0;
+
+    while ((leido = getline(&linea, &tamano, inputFile)) != -1) {
+        char **temp = realloc(lineas, (num_lineas + 1) * sizeof(char *));
+        if (temp == NULL) {
+            fprintf(stderr, "malloc failed\n");
+            liberar_memoria(lineas, num_lineas);
+            free(linea);
+            exit(1);
+        }
+        lineas = temp;
+        lineas[num_lineas] = strdup(linea);
+        if (lineas[num_lineas] == NULL) {
+            fprintf(stderr, "malloc failed\n");
+            liberar_memoria(lineas, num_lineas);
+            free(linea);
+            exit(1);
+        }
+        num_lineas++;
+    }
+
+    free(linea);
+    fclose(inputFile);
+
+    // Imprimir las líneas en orden inverso
+    for (int i = num_lineas - 1; i >= 0; i--) {
+        fprintf(outputFile, "%s", lineas[i]);
+        free(lineas[i]);
+    }
+
+    free(lineas);
+    if (outputFile != stdout) {
+        fclose(outputFile);
     }
 
     return 0;
