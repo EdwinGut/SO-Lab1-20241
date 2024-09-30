@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
     char **lineas = NULL;
     char *linea = NULL;
     size_t tamano = 0;
-    ssize_t leido;
+    size_t leido;
     int num_lineas = 0;
 
     while ((leido = getline(&linea, &tamano, inputFile)) != -1) {
